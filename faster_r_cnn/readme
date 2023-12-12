@@ -1,2 +1,2 @@
 Faster r cnn
-the build model is just a simple model that have the structure of faster r cnn, to actually build a frcnn model that can be train and use is too complicated, so we use a pretrained model to train and do the test
+
