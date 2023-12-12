@@ -3,11 +3,7 @@ import torch
 import xml.etree.ElementTree as ET
 from PIL import Image
 from torchvision.transforms import functional as F
-
-import os
-import torch
-from PIL import Image
-import xml.etree.ElementTree as ET
+import random
 
 class CustomDataset(torch.utils.data.Dataset):
     def __init__(self, img_dir, annotations_dir, transform=None):
@@ -34,7 +30,7 @@ class CustomDataset(torch.utils.data.Dataset):
             boxes.append([xmin, ymin, xmax, ymax])
 
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
-        labels = torch.ones((len(boxes),), dtype=torch.int64)  # Assuming all instances are of the class 'human'
+        labels = torch.ones((len(boxes),), dtype=torch.int64)  
 
         image_id = torch.tensor([idx])
         area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
@@ -54,15 +50,48 @@ class CustomDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.imgs)
+    
+    def split_dataset(img_dir, annot_dir, train_size=0.8):
+        # List all images
+        images = [f for f in os.listdir(img_dir) if f.endswith('.jpg')]
+        random.shuffle(images)  # Shuffle the dataset
+
+        # Split the dataset
+        train_count = int(len(images) * train_size)
+        train_images = images[:train_count]
+        val_images = images[train_count:]
+
+        # Create training and validation directories
+        train_img_dir = os.path.join(img_dir, 'train')
+        val_img_dir = os.path.join(img_dir, 'val')
+        train_annot_dir = os.path.join(annot_dir, 'train')
+        val_annot_dir = os.path.join(annot_dir, 'val')
+
+        os.makedirs(train_img_dir, exist_ok=True)
+        os.makedirs(val_img_dir, exist_ok=True)
+        os.makedirs(train_annot_dir, exist_ok=True)
+        os.makedirs(val_annot_dir, exist_ok=True)
+
+        # Move files to their respective directories
+        for img_file in train_images:
+            os.rename(os.path.join(img_dir, img_file), os.path.join(train_img_dir, img_file))
+            os.rename(os.path.join(annot_dir, img_file.replace('.jpg', '.xml')), os.path.join(train_annot_dir, img_file.replace('.jpg', '.xml')))
+        
+        for img_file in val_images:
+            os.rename(os.path.join(img_dir, img_file), os.path.join(val_img_dir, img_file))
+            os.rename(os.path.join(annot_dir, img_file.replace('.jpg', '.xml')), os.path.join(val_annot_dir, img_file.replace('.jpg', '.xml')))
+
+        return train_img_dir, train_annot_dir, val_img_dir, val_annot_dir
 
 
-# Example usage:
+
 # Define the transformation
 transform = F.to_tensor
 
 # Create the dataset
 dataset = CustomDataset(r'C:\Users\86183\OneDrive - The Ohio State University\Desktop\project1\yolo_person_train\images',
                         r'C:\Users\86183\OneDrive - The Ohio State University\Desktop\project1\yolo_person_train\xml_annotations', transform=transform)
+
 
 
 
