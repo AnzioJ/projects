@@ -99,8 +99,6 @@ class YOLODataset(Dataset):
         return bbox_labels
 
 
-
-
 # 自定义 collate 函数
 def custom_collate_fn(batch):
     images, bbox_labels = zip(*[(img, label) for img, label in batch if img is not None])
@@ -108,7 +106,6 @@ def custom_collate_fn(batch):
     bbox_labels = torch.stack(bbox_labels)
     return images, bbox_labels
 
-# 使用示例
 image_folder = 'Downloads/Human_Detection/images_data_02'
 label_folder = 'Downloads/Human_Detection/txt_data'
 train_dataset = YOLODataset(image_folder, label_folder, split='train', train_split=0.7, valid_split=0.15)
@@ -132,12 +129,12 @@ for images, labels in train_dataloader:
         print(f"Sample {i}:")
         for j in range(labels.size(1)):  # labels.size(1) 是每个样本中的边界框数量
             bbox = labels[i, j]
-            # 检查边界框是否有效（例如，非零或特定的空边界框标记）
+            # 检查边界框是否有效
             if torch.any(bbox != 0):
                 print(f"  Box {j}: Class={bbox[0]}, X={bbox[1]}, Y={bbox[2]}, Width={bbox[3]}, Height={bbox[4]}")
             else:
                 print(f"  Box {j}: Empty/Invalid box")
-    break  # 只处理第一个批次
+    break  
 
 import torch
 import torch.nn as nn
@@ -153,7 +150,7 @@ class SimpleYOLO(nn.Module):
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(16, 32, 3, padding=1)
         self.conv3 = nn.Conv2d(32, 64, 3, padding=1)
-        self.pool2 = nn.MaxPool2d(2, 2)  # 添加额外的池化层
+        self.pool2 = nn.MaxPool2d(2, 2)  
         self.conv_out = nn.Conv2d(64, 5 * self.S * self.S, 1)
 
     def forward(self, x):
@@ -179,8 +176,8 @@ class CustomYOLOLoss(nn.Module):
         # target: 真实标签，同样的维度
 
         # 提取预测和目标中的各个组件
-        pred_cls = self.sigmoid(predictions[..., 0])  # 第1个元素是类别预测
-        pred_boxes = predictions[..., 1:5]  # 后4个元素是边界框的坐标
+        pred_cls = self.sigmoid(predictions[..., 0]) 
+        pred_boxes = predictions[..., 1:5] 
 
         target_cls = target[..., 0]
         target_boxes = target[..., 1:5]
@@ -194,7 +191,6 @@ class CustomYOLOLoss(nn.Module):
 
         return total_loss
 
-# 确保您已经定义了 SimpleYOLO, CustomYOLOLoss, train_dataloader, valid_dataloader
 
 model = SimpleYOLO()
 model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
@@ -227,7 +223,7 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         outputs = model(images)
 
-        # 假设targets包含边界框和类别标签
+        
         bbox_labels = targets[..., 1:5]
         labels = targets[..., 0].long()
 
@@ -317,13 +313,12 @@ model.eval()  # 设置模型为评估模式
 bbox_predictions = []
 class_predictions = []
 
-with torch.no_grad():  # 在不计算梯度的情况下执行
+with torch.no_grad():  
     for images, _ in test_dataloader:
         images = images.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
         outputs = model(images)
         
-        # 假设输出是一个元组，包含边界框和类别预测
         bbox_pred, class_pred = outputs
 
         bbox_predictions.append(bbox_pred.cpu())
@@ -345,8 +340,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 from PIL import Image
-
-# 假设您已经定义了image_dir和dataframe
 
 # 选择图像的索引
 image_index = 0
