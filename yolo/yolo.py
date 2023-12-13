@@ -99,6 +99,8 @@ class YOLODataset(Dataset):
         return bbox_labels
 
 
+
+
 # 自定义 collate 函数
 def custom_collate_fn(batch):
     images, bbox_labels = zip(*[(img, label) for img, label in batch if img is not None])
@@ -106,6 +108,7 @@ def custom_collate_fn(batch):
     bbox_labels = torch.stack(bbox_labels)
     return images, bbox_labels
 
+# 使用示例
 image_folder = 'Downloads/Human_Detection/images_data_02'
 label_folder = 'Downloads/Human_Detection/txt_data'
 train_dataset = YOLODataset(image_folder, label_folder, split='train', train_split=0.7, valid_split=0.15)
@@ -125,9 +128,9 @@ for images, labels in train_dataloader:
     print("Labels shape:", labels.shape)
 
     # 遍历批次中的每个样本
-    for i in range(labels.size(0)):  # labels.size(0) 是批次中样本的数量
+    for i in range(labels.size(0)):  
         print(f"Sample {i}:")
-        for j in range(labels.size(1)):  # labels.size(1) 是每个样本中的边界框数量
+        for j in range(labels.size(1)):  
             bbox = labels[i, j]
             # 检查边界框是否有效
             if torch.any(bbox != 0):
@@ -150,7 +153,7 @@ class SimpleYOLO(nn.Module):
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(16, 32, 3, padding=1)
         self.conv3 = nn.Conv2d(32, 64, 3, padding=1)
-        self.pool2 = nn.MaxPool2d(2, 2)  
+        self.pool2 = nn.MaxPool2d(2, 2)  # 添加额外的池化层
         self.conv_out = nn.Conv2d(64, 5 * self.S * self.S, 1)
 
     def forward(self, x):
@@ -172,21 +175,18 @@ class CustomYOLOLoss(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, predictions, target):
-        # predictions: 模型的输出，格式为[N, S, S, 5]
-        # target: 真实标签，同样的维度
 
-        # 提取预测和目标中的各个组件
-        pred_cls = self.sigmoid(predictions[..., 0]) 
-        pred_boxes = predictions[..., 1:5] 
+        pred_cls = self.sigmoid(predictions[..., 0])  
+        pred_boxes = predictions[..., 1:5]  
 
         target_cls = target[..., 0]
         target_boxes = target[..., 1:5]
 
-        # 计算损失
+
         loss_cls = self.mse_loss(pred_cls, target_cls)
         loss_boxes = self.mse_loss(pred_boxes, target_boxes)
 
-        # 总损失是各个损失的加权和
+
         total_loss = loss_cls + loss_boxes
 
         return total_loss
@@ -223,9 +223,9 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         outputs = model(images)
 
-        
-        bbox_labels = targets[..., 1:5]
-        labels = targets[..., 0].long()
+
+        bbox_labels = targets[..., 0]
+        labels = targets[..., 1:5].long()
 
         loss = criterion(outputs, bbox_labels, labels)
         loss.backward()
@@ -280,105 +280,3 @@ for epoch in range(num_epochs):
 
 best_val_acc = max(history['validation_accuracy'])
 print("Best validation accuracy is:", best_val_acc)
-
-
-
-# 创建 DataFrame
-df_history = pd.DataFrame({
-    'Train Accuracy': history['train_accuracy'],
-    'Train Loss': history['train_loss'],
-    'Validation Accuracy': history['validation_accuracy'],
-    'Validation Loss': history['validation_loss']
-})
-
-# 添加迭代次数作为一列
-df_history['Iteration'] = range(1, len(df_history) + 1)
-
-print("Number of iterations:", len(df_history))
-display(df_history)
-
-
-# 绘制准确率图表
-fig_accuracy = px.line(df_history, x='Iteration', y=['Train Accuracy', 'Validation Accuracy'], title='Accuracy vs Iteration', labels={'value': 'Accuracy', 'variable': 'Dataset'})
-fig_accuracy.show()
-
-# 绘制损失图表
-fig_loss = px.line(df_history, x='Iteration', y=['Train Loss', 'Validation Loss'], title='Loss vs Iteration', labels={'value': 'Loss', 'variable': 'Dataset'})
-fig_loss.show()
-
-import torch
-
-model.eval()  # 设置模型为评估模式
-
-bbox_predictions = []
-class_predictions = []
-
-with torch.no_grad():  
-    for images, _ in test_dataloader:
-        images = images.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
-
-        outputs = model(images)
-        
-        bbox_pred, class_pred = outputs
-
-        bbox_predictions.append(bbox_pred.cpu())
-        class_predictions.append(class_pred.cpu())
-
-# 将收集的预测拼接成一个张量并转换为numpy数组
-bbox_predictions = torch.cat(bbox_predictions, dim=0).numpy()
-class_predictions = torch.cat(class_predictions, dim=0).numpy()
-
-# 将原始分数（logits）转换为预测的类别标签
-predicted_labels = torch.argmax(torch.tensor(class_predictions), dim=1).numpy()
-
-print("Bounding box predictions:", bbox_predictions)
-print("Class predictions:", predicted_labels)
-
-
-import os
-import numpy as np
-import matplotlib.pyplot as plt
-import cv2
-from PIL import Image
-
-# 选择图像的索引
-image_index = 0
-
-# 根据索引获取图像路径
-image_path = os.path.join(image_dir, dataframe.iloc[image_index, -1])
-
-# 加载图像并进行必要的预处理
-image = Image.open(image_path)
-image_np = np.array(image)
-
-# 获取对应图像的边界框预测
-bbox = bbox_predictions[image_index]
-
-# 定义反向归一化函数
-def reverse_normalize(normalized_box, size):
-    dw = 1. / size[0]
-    dh = 1. / size[1]
-    
-    x_center, y_center, norm_w, norm_h = normalized_box
-    
-    # 从中心坐标转换为左上角坐标
-    x = (x_center - norm_w / 2) / dw
-    y = (y_center - norm_h / 2) / dh
-    w = norm_w / dw
-    h = norm_h / dh
-    
-    return int(x), int(y), int(w), int(h)
-
-# 假设 original_size 为图像的原始尺寸
-original_size = image_np.shape[1], image_np.shape[0]
-
-# 获取边界框的左上角和右下角坐标
-x, y, w, h = reverse_normalize(bbox, original_size)
-
-# 在图像上绘制矩形（边界框）
-cv2.rectangle(image_np, (x, y), (x+w, y+h), (0, 255, 0), 3)
-
-# 使用 matplotlib 显示图像
-plt.imshow(image_np)
-plt.axis('off')  
-plt.show()
